@@ -5,7 +5,7 @@ set -eu
 name=`basename $0`
 
 usage() {
-	echo "usage: $name [ -v var=value ] [ 'prog' | -f progfile ] [ file ]"
+	echo "usage: $name [-v var=value] [-f progfile | 'prog'] [file]" >&2
 	exit 1
 }
 
