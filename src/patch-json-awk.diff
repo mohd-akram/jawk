@@ -1,5 +1,5 @@
---- src/JSON.awk.orig	2020-08-11 19:57:16.000000000 +0400
-+++ src/JSON.awk	2020-08-11 19:57:15.000000000 +0400
+--- src/JSON.awk.orig	2020-08-12 23:03:00.000000000 +0400
++++ src/JSON.awk	2020-08-12 23:02:52.000000000 +0400
 @@ -54,7 +54,7 @@
  	} # else usage: awk -f JSON.awk file1 [file2...]
  
@@ -24,46 +24,22 @@
  	}
  }
  
-@@ -85,7 +87,11 @@
- 	if (0 == STREAM) {
- 		return cb_append_jpath_component(jpath, component)
- 	} else {
--		return (jpath != "" ? jpath "," : "") component
-+		if (component == "") return jpath
-+		gsub(/^"|"$/, "", component)
-+		if (jpath == "") return "\"" component "\""
-+		gsub(/^"|"$/, "", jpath)
-+		return "\"" jpath SUBSEP component "\""
- 	}
- }
- 
-@@ -93,7 +99,7 @@
- 	if (0 == STREAM) {
- 		return cb_append_jpath_value(jpath, value)
- 	} else {
--		return sprintf("[%s]\t%s", jpath, value)
-+		return sprintf("%s\t%s", jpath, value)
- 	}
- }
- 
-@@ -125,8 +131,8 @@
+@@ -125,7 +127,7 @@
  	}
  }
  
 -function parse_array(a1,   idx,ary,ret) { #{{{1
--	idx=0
 +function parse_array(a1,   idx,ary,jpath,ret,x) { #{{{1
-+	idx=1
+ 	idx=0
  	ary=""
  	get_token()
- #	print "parse_array(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
-@@ -154,6 +160,17 @@
+@@ -154,6 +156,17 @@
  	} else {
  		VALUE = CB_VALUE = parse_array_empty(a1)
  	}
 +
 +	jpath = append_jpath_component(a1, "\"length\"")
-+	x = append_jpath_value(jpath, idx-1)
++	x = append_jpath_value(jpath, idx)
 +	if(0 == STREAM) {
 +		# save jpath+value for cb_jpaths
 +		JPATHS[++NJPATHS] = x
@@ -75,7 +51,7 @@
  	return 0
  }
  
-@@ -176,7 +193,7 @@
+@@ -176,7 +189,7 @@
  	}
  }
  
@@ -84,7 +60,7 @@
  	obj=""
  	get_token()
  #	print "parse_object(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
-@@ -197,6 +214,9 @@
+@@ -197,6 +210,9 @@
  			if (parse_value(a1, key)) {
  				return 5
  			}
@@ -94,7 +70,7 @@
  			obj=obj key ":" VALUE
  			get_token()
  			if (TOKEN == "}") {
-@@ -215,6 +235,15 @@
+@@ -215,6 +231,15 @@
  	} else {
  		VALUE = CB_VALUE = parse_object_empty(a1)
  	}
@@ -110,7 +86,7 @@
  	return 0
  }
  
-@@ -272,13 +301,10 @@
+@@ -272,13 +297,10 @@
  
  function parse(   ret) { #{{{1
  	get_token()
@@ -125,7 +101,7 @@
  	return 0
  }
  
-@@ -301,8 +327,6 @@
+@@ -301,8 +323,6 @@
  # 2) Move the call to apply() from the main loop to the END statement.
  # 3) In the main loop consider adding code that deletes partial JPATHS[]
  #    elements that would result from parsing invalid JSON files.

@@ -87,11 +87,7 @@ function append_jpath_component(jpath, component) { #{{{1
 	if (0 == STREAM) {
 		return cb_append_jpath_component(jpath, component)
 	} else {
-		if (component == "") return jpath
-		gsub(/^"|"$/, "", component)
-		if (jpath == "") return "\"" component "\""
-		gsub(/^"|"$/, "", jpath)
-		return "\"" jpath SUBSEP component "\""
+		return (jpath != "" ? jpath "," : "") component
 	}
 }
 
@@ -99,7 +95,7 @@ function append_jpath_value(jpath, value) { #{{{1
 	if (0 == STREAM) {
 		return cb_append_jpath_value(jpath, value)
 	} else {
-		return sprintf("%s\t%s", jpath, value)
+		return sprintf("[%s]\t%s", jpath, value)
 	}
 }
 
@@ -132,7 +128,7 @@ function parse_array_exit(jpath, status) { #{{{1
 }
 
 function parse_array(a1,   idx,ary,jpath,ret,x) { #{{{1
-	idx=1
+	idx=0
 	ary=""
 	get_token()
 #	print "parse_array(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
@@ -162,7 +158,7 @@ function parse_array(a1,   idx,ary,jpath,ret,x) { #{{{1
 	}
 
 	jpath = append_jpath_component(a1, "\"length\"")
-	x = append_jpath_value(jpath, idx-1)
+	x = append_jpath_value(jpath, idx)
 	if(0 == STREAM) {
 		# save jpath+value for cb_jpaths
 		JPATHS[++NJPATHS] = x
