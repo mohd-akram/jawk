@@ -12,7 +12,7 @@ jawk: src/jawk.sh src/jawk.awk src/callbacks.awk src/JSON.awk
 src/JSON.awk.orig:
 	curl $(JSON_AWK_URL) > $@
 
-src/JSON.awk: src/JSON.awk.orig src/patch-json-awk.diff
+src/JSON.awk: src/JSON.awk.orig
 	patch -o $@ src/JSON.awk.orig < src/patch-json-awk.diff || rm $@
 
 src/patch-json-awk.diff: src/JSON.awk.orig src/JSON.awk
