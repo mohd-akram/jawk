@@ -47,9 +47,9 @@ done
 if [ ! "$p" ]; then usage; fi
 if [ ! "$f" ]; then file=-; fi
 
-cbs="`cat callbacks.awk`"
-parser="`cat JSON.awk`"
-jawk="`cat jawk.awk`"
+cbs=$(cat callbacks.awk)
+parser=$(cat JSON.awk)
+jawk=$(cat jawk.awk)
 
 awk -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" "$file" | \
 awk "$@" "$jawk""$prog"

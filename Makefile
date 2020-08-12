@@ -7,7 +7,8 @@ jawk: src/jawk.sh src/jawk.awk src/callbacks.awk src/JSON.awk
 		'/^cbs=/{' 'r src/callbacks.awk' 'a\' \' 'c\' "cbs='" '}' \
 		'/^parser=/{' 'r src/JSON.awk' 'a\' \' 'c\' "parser='" '}' \
 		'/^jawk=/{' 'r src/jawk.awk' 'a\' \' 'c\' "jawk='" '}' \
-		)" src/jawk.sh > $@ && chmod +x $@ || rm $@
+		)" src/jawk.sh | grep -v '^[[:blank:]]*#[^!]' > $@ && \
+		chmod +x $@ || rm $@
 
 src/JSON.awk.orig:
 	curl $(JSON_AWK_URL) > $@
