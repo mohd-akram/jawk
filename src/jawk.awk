@@ -42,6 +42,8 @@ function __jawk(i, kv, key, value, raw_value, type, arg, cmd, ret, j) {
 				# unescape common characters
 				gsub(/\\"/, "\"", value)
 				gsub(/\\n/, "\n", value)
+				gsub(/\\r/, "\r", value)
+				gsub(/\\t/, "\t", value)
 				# if still needs escaping, fallback to printf
 				if (match(value, /\\/)) {
 					arg = raw_value
