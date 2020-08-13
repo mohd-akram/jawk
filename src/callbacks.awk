@@ -101,13 +101,6 @@ function cb_jpaths (ary, size,   i) {
 # has completed. Called in JSON.awk END action when STREAM=0 only.
 # This example illustrates printing parsing errors to stdout,
 function cb_fails (ary, size,   k) {
-
-	# Print ary - associative array of parsing failures.
-	# ary keys are the size input file names that JSON.awk read.
-	for(k in ary) {
-		print "cb_fails: invalid input file:", k
-		print FAILS[k]
-	}
 }
 
 # cb_fail1 - process a single parse error as soon as it is
@@ -115,7 +108,5 @@ function cb_fails (ary, size,   k) {
 # Return non-zero to let JSON.awk also print the message to stderr.
 # This example illustrates printing the error message to stdout only.
 function cb_fail1 (message) {
-
-	print "cb_fail1: invalid input file:", FILENAME
-	print message
+	return 1
 }

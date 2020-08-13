@@ -107,7 +107,7 @@ out=$(echo '{"x":null}' | jawk '{print _["x",TYPE]}')
 [ "$out" = "null" ]
 
 test "_[0]"
-out=$(echo '20\n{"0":5}' | jawk '{print _[0]}')
+out=$(printf '20\n{"0":5}' | jawk '{print _[0]}')
 [ "$out" = "$(printf '%s\n' 20 5)" ]
 
 test "single quote in string"
@@ -129,6 +129,14 @@ out=$(echo '{"x":"hello`friend"}' | jawk '{printf("%s",_["x"])}')
 test "dollar sign in string"
 out=$(echo '{"x":"hello$friend"}' | jawk '{printf("%s",_["x"])}')
 [ "$out" = 'hello$friend' ]
+
+test "escapes in string"
+out=$(printf "%s" '{"x":"\b\f\n\r\t\"\/\\"}' | jawk '{printf("%s",_["x"])}')
+[ "$out" = "$(printf '\b\f\n\r\t"/\\')" ]
+
+test "unicode in string"
+out=$(printf "%s" '"\u0041\u0636\uFe10\uD801\uDC37"' | jawk '{print _[0]}')
+[ "$out" = "$(echo 'Aض︐𐐷')" ]
 
 test "trailing newline in string"
 out=$(printf '%s' '{"x":"\t\n"}' | jawk '{printf("%s",_["x"])}' && echo .)
