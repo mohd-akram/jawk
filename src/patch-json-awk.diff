@@ -1,5 +1,5 @@
---- src/JSON.awk.orig	2020-08-12 23:03:00.000000000 +0400
-+++ src/JSON.awk	2020-08-12 23:02:52.000000000 +0400
+--- src/JSON.awk.orig	2020-08-13 19:04:05.000000000 +0400
++++ src/JSON.awk	2020-08-13 19:04:50.000000000 +0400
 @@ -54,7 +54,7 @@
  	} # else usage: awk -f JSON.awk file1 [file2...]
  
@@ -110,3 +110,12 @@
  
  	TOKEN=""; delete TOKENS; NTOKENS=ITOKENS=0
  	delete JPATHS; NJPATHS=0
+@@ -335,7 +355,7 @@
+ #	KEYWORD="null|false|true"
+ 	SPACE="[[:space:]]+"
+ #	^BOM "|" STRING "|" NUMBER "|" KEYWORD "|" SPACE "|."
+-	gsub(/(^\xEF\xBB\xBF)|\"[^\"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^\"\\[:cntrl:]]*)*\"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
++	gsub(/(^\xEF\xBB\xBF)|"[^"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^"\\[:cntrl:]]*)*"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
+ 	gsub("\n" SPACE, "\n", a1)
+ 	# ^\n BOM?
+ 	sub(/^\n(\xEF\xBB\xBF\n)?/, "", a1)
