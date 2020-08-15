@@ -301,7 +301,7 @@ function __hextodec(h) {
 	return 256 * __HEX[substr(h, 1, 2)] + __HEX[substr(h, 3)]
 }
 
-function __unescape(s, i, s2, c, u, h, c2) {
+function __unescape(s, i, s2, c, u, h) {
 	i = match(s, /\\([bfnrt"\\\/]|u[0-9a-fA-F]{4})/)
 	if (!i) return s
 	s2 = ""
@@ -356,7 +356,7 @@ function keys(ks, o, n, a, i) {
 	return n
 }
 
-function __jawk(i, kv, key, value, raw_value, type, arg, cmd, ret, j) {
+function __jawk(i, kv, key, value, raw_value, type) {
 	for (i = 1; i <= NF; i++) {
 		split($i, kv, "\t")
 		# remove surrounding quotes
