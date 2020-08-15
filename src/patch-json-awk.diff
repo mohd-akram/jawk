@@ -1,10 +1,21 @@
---- src/JSON.awk.orig	2020-08-13 19:04:05.000000000 +0400
-+++ src/JSON.awk	2020-08-13 19:04:50.000000000 +0400
+--- src/JSON.awk.orig	2020-08-15 16:59:21.000000000 +0400
++++ src/JSON.awk	2020-08-15 17:06:30.000000000 +0400
+@@ -1,8 +1,8 @@
+ #!/usr/bin/awk -f
+ #
+ # Software: JSON.awk - a practical JSON parser written in awk
+-# Version: 1.4
+-# Copyright (c) 2013-2020, step
++# Version: 1.3.1
++# Copyright (c) 2013-2019, step
+ # License: MIT or Apache 2
+ # Project home: https://github.com/step-/JSON.awk
+ # Credits:      https://github.com/step-/JSON.awk#credits
 @@ -54,7 +54,7 @@
  	} # else usage: awk -f JSON.awk file1 [file2...]
  
  	# set file slurping mode
--	srand(); RS="n/o/m/a/t/c/h" rand()
+-	srand(); RS="\x01n/o/m/a/t/c/h" rand()
 +	srand(); RS="\1" rand()
  }
  
