@@ -328,29 +328,29 @@ function __unescape(s, i, s2, c, u, h) {
 	return s2
 }
 
-function keys(ks, o, n, a, i) {
+function keys(a, o, n, ks, i) {
 	# differentiate between the root object and an empty root key
 	# if the root object
 	if (o == "" && o == 0) {
 		# if object
 		if ("\3" in _) {
-			n = split(_["\3"], a, "\037")
-			while (++i <= n) ks[a[i]] = a[i]
+			n = split(_["\3"], ks, "\037")
+			while (++i <= n) a[ks[i]] = ks[i]
 		# if array
 		} else {
 			n = _["length"]
-			while (++i <= _["length"]) ks[i] = i
+			while (++i <= _["length"]) a[i] = i
 		}
 	}
 	else {
 		# if object
-		if ((o SUBSEP "\3") in _) {
-			n = split(_[o,"\3"], a, "\037")
-			while (++i <= n) ks[a[i]] = o SUBSEP a[i]
+		if ((o,"\3") in _) {
+			n = split(_[o,"\3"], ks, "\037")
+			while (++i <= n) a[ks[i]] = o SUBSEP ks[i]
 		# if array
 		} else {
 			n = _[o,"length"]
-			while (++i <= n) ks[i] = o SUBSEP i
+			while (++i <= n) a[i] = o SUBSEP i
 		}
 	}
 	return n
