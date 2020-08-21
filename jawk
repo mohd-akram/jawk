@@ -114,6 +114,7 @@ parser='
 BEGIN { #{{{1
 	if (BRIEF  == "") BRIEF=1  # when 1 parse() omits non-leaf nodes from stdout
 	if (STREAM == "") STREAM=1 # when 0 parse() stores JPATHS[] for callback cb_jpaths
+	if (STRICT == "") STRICT=1 # when 1 parse() enforces valid character escapes (RFC8259 7)
 
 	NO_EMPTY_STR = 0; NO_EMPTY_ARY = NO_EMPTY_OBJ = 1
 
@@ -154,6 +155,7 @@ END { # process invalid files {{{1
 	if (0 == STREAM) {
 		cb_fails(FAILS, NFAILS)
 	}
+	exit(NFAILS > 0)
 }
 
 function bit_on(n, b) { #{{{1
@@ -181,7 +183,7 @@ function get_token() { #{{{1
 
 
 	TOKEN = TOKENS[++ITOKENS] # for internal tokenize()
-	return ITOKENS < NTOKENS
+	return ITOKENS < NTOKENS  # 1 if more tokens to come
 }
 
 function parse_array_empty(jpath) { #{{{1
@@ -261,7 +263,7 @@ function parse_object_exit(jpath, status) { #{{{1
 	}
 }
 
-function parse_object(a1,   key,obj,keys,key_) { #{{{1
+function parse_object(a1,   key,obj,keys,key_,jpath,x) { #{{{1
 	obj=""
 	get_token()
 	if (TOKEN != "}") {
@@ -311,7 +313,7 @@ function parse_object(a1,   key,obj,keys,key_) { #{{{1
 	return 0
 }
 
-function parse_value(a1, a2,   jpath,ret,x) { #{{{1
+function parse_value(a1, a2,   jpath,ret,x,reason) { #{{{1
 	jpath = append_jpath_component(a1, a2)
 
 	if (TOKEN == "{") {
@@ -330,12 +332,15 @@ function parse_value(a1, a2,   jpath,ret,x) { #{{{1
 		parse_array_exit(jpath, 0)
 	} else if (TOKEN == "") { #test case 20150410 #4
 		report("value", "EOF")
-		return 9
-	} else if (TOKEN ~ /^([^0-9])$/) {
-		report("value", TOKEN)
-		return 9
-	} else {
+		return 8
+	} else if ((x = is_value(TOKEN)) >0) {
 		CB_VALUE = VALUE = TOKEN
+	} else {
+		if (-1 == x || -2 == x) {
+			reason = "missing or invalid character escape"
+		}
+		report("value", TOKEN, reason)
+		return 9
 	}
 
 	if (0 < BRIEF && ("" == jpath || "" == VALUE)) {
@@ -364,7 +369,7 @@ function parse(   ret) { #{{{1
 	return 0
 }
 
-function report(expected, got,   i,from,to,context) { #{{{1
+function report(expected, got, extra,   i,from,to,context) { #{{{1
 	from = ITOKENS - 10; if (from < 1) from = 1
 	to = ITOKENS + 10; if (to > NTOKENS) to = NTOKENS
 	for (i = from; i < ITOKENS; i++)
@@ -372,7 +377,7 @@ function report(expected, got,   i,from,to,context) { #{{{1
 	context = context "<<" got ">> "
 	for (i = ITOKENS + 1; i <= to; i++)
 		context = context sprintf("%s ", TOKENS[i])
-	scream("expected <" expected "> but got <" got "> at input token " ITOKENS "\n" context)
+	scream("expected <" expected "> but got <" got "> (length " length(got) (extra ? ", "extra :"") ") at input token " ITOKENS "\n" context)
 }
 
 function reset() { #{{{1
@@ -394,14 +399,38 @@ function scream(msg) { #{{{1
 	}
 }
 
-function tokenize(a1,   pq,pb,ESCAPE,CHAR,STRING,NUMBER,KEYWORD,SPACE) { #{{{1
+function tokenize(a1) { #{{{1
 
-	SPACE="[[:space:]]+"
-	gsub(/(^\xEF\xBB\xBF)|"[^"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^"\\[:cntrl:]]*)*"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
-	gsub("\n" SPACE, "\n", a1)
-	sub(/^\n(\xEF\xBB\xBF\n)?/, "", a1)
+
+	gsub(/^\357\273\277|^\377\376|^\376\377|"[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true|[ \t\n\r]+|./, "\n&", a1)
+	gsub("\n" "[ \t\n\r]+", "\n", a1)
+	sub(/^\n((\357\273\277|\377\376|\376\377)\n)?/, "", a1)
 	ITOKENS=0 # get_token() helper
 	return NTOKENS = split(a1, TOKENS, /\n/)
+}
+
+function is_value(a1) { #{{{1
+
+	if(!STRICT)
+		return a1 ~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
+
+
+	if (1 != index(a1, "\"")) {
+		return a1 ~ /^(-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
+	}
+	if (a1 !~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*")$/) {
+		return 0
+	}
+	a1 = substr(a1, 2, length(a1) -2)
+
+	gsub(/\\["\\\/bfnrt]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/, "", a1)
+	if (a1 ~ /["\\\000-\037]/) {
+		return -1
+	}
+	if (STRICT > 1 && index(a1, "/")) {
+		return -2
+	}
+	return 1
 }
 
 '

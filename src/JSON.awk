@@ -1,8 +1,8 @@
 #!/usr/bin/awk -f
 #
 # Software: JSON.awk - a practical JSON parser written in awk
-# Version: 1.3.1
-# Copyright (c) 2013-2019, step
+# Version: 1.4.1
+# Copyright (c) 2013-2020, step
 # License: MIT or Apache 2
 # Project home: https://github.com/step-/JSON.awk
 # Credits:      https://github.com/step-/JSON.awk#credits
@@ -18,10 +18,14 @@
 #      excludes ""(8) and wins over bit 1. BRIEF=0 includeѕ all.
 #   STREAM=: 0 or 1 {1}:
 #      zero hooks callbacks into parser and stdout printing.
+#   STRICT=: 0,1,2 {0}:
+#      1 enforce RFC8259#7 character escapes except for solidus /
+#      2 enforce solidus escape too (for JSON embedded in HTML/XML)
 
 BEGIN { #{{{1
 	if (BRIEF  == "") BRIEF=1  # when 1 parse() omits non-leaf nodes from stdout
 	if (STREAM == "") STREAM=1 # when 0 parse() stores JPATHS[] for callback cb_jpaths
+	if (STRICT == "") STRICT=1 # when 1 parse() enforces valid character escapes (RFC8259 7)
 
 	# Set if empty string/array/object go to stdout and cb_jpaths when BRIEF>0
 	# defaults compatible with version up to 1.2
@@ -75,6 +79,7 @@ END { # process invalid files {{{1
 		# Pass the callback an associative array of failed objects.
 		cb_fails(FAILS, NFAILS)
 	}
+	exit(NFAILS > 0)
 }
 
 function bit_on(n, b) { #{{{1
@@ -105,7 +110,7 @@ function get_token() { #{{{1
 	# return getline TOKEN # for external tokenizer
 
 	TOKEN = TOKENS[++ITOKENS] # for internal tokenize()
-	return ITOKENS < NTOKENS
+	return ITOKENS < NTOKENS  # 1 if more tokens to come
 }
 
 function parse_array_empty(jpath) { #{{{1
@@ -189,7 +194,7 @@ function parse_object_exit(jpath, status) { #{{{1
 	}
 }
 
-function parse_object(a1,   key,obj,keys,key_) { #{{{1
+function parse_object(a1,   key,obj,keys,key_,jpath,x) { #{{{1
 	obj=""
 	get_token()
 #	print "parse_object(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
@@ -243,7 +248,7 @@ function parse_object(a1,   key,obj,keys,key_) { #{{{1
 	return 0
 }
 
-function parse_value(a1, a2,   jpath,ret,x) { #{{{1
+function parse_value(a1, a2,   jpath,ret,x,reason) { #{{{1
 	jpath = append_jpath_component(a1, a2)
 #	print "parse_value(" a1 "," a2 ") TOKEN=" TOKEN " jpath=" jpath >"/dev/stderr"
 
@@ -263,13 +268,15 @@ function parse_value(a1, a2,   jpath,ret,x) { #{{{1
 		parse_array_exit(jpath, 0)
 	} else if (TOKEN == "") { #test case 20150410 #4
 		report("value", "EOF")
-		return 9
-	} else if (TOKEN ~ /^([^0-9])$/) {
-		# At this point, the only valid single-character tokens are digits.
-		report("value", TOKEN)
-		return 9
-	} else {
+		return 8
+	} else if ((x = is_value(TOKEN)) >0) {
 		CB_VALUE = VALUE = TOKEN
+	} else {
+		if (-1 == x || -2 == x) {
+			reason = "missing or invalid character escape"
+		}
+		report("value", TOKEN, reason)
+		return 9
 	}
 
 	# jpath=="" occurs on starting and ending the parsing session.
@@ -304,7 +311,7 @@ function parse(   ret) { #{{{1
 	return 0
 }
 
-function report(expected, got,   i,from,to,context) { #{{{1
+function report(expected, got, extra,   i,from,to,context) { #{{{1
 	from = ITOKENS - 10; if (from < 1) from = 1
 	to = ITOKENS + 10; if (to > NTOKENS) to = NTOKENS
 	for (i = from; i < ITOKENS; i++)
@@ -312,7 +319,7 @@ function report(expected, got,   i,from,to,context) { #{{{1
 	context = context "<<" got ">> "
 	for (i = ITOKENS + 1; i <= to; i++)
 		context = context sprintf("%s ", TOKENS[i])
-	scream("expected <" expected "> but got <" got "> at input token " ITOKENS "\n" context)
+	scream("expected <" expected "> but got <" got "> (length " length(got) (extra ? ", "extra :"") ") at input token " ITOKENS "\n" context)
 }
 
 function reset() { #{{{1
@@ -341,26 +348,79 @@ function scream(msg) { #{{{1
 	}
 }
 
-function tokenize(a1,   pq,pb,ESCAPE,CHAR,STRING,NUMBER,KEYWORD,SPACE) { #{{{1
+function tokenize(a1) { #{{{1
 # usage A: {for(i=1; i<=tokenize($0); i++) print TOKENS[i]}
 # see also get_token()
 
-	# POSIX character classes (gawk) - contact me for non-[:class:] notation
-	# Replaced regex constant for string constant, see https://github.com/step-/JSON.awk/issues/1
-#	BOM="(^\xEF\xBB\xBF)"
-#	ESCAPE="(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})"
-#	CHAR="[^[:cntrl:]\\\"]"
-#	STRING="\"" CHAR "*(" ESCAPE CHAR "*)*\""
-#	NUMBER="-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?"
-#	KEYWORD="null|false|true"
-	SPACE="[[:space:]]+"
-#	^BOM "|" STRING "|" NUMBER "|" KEYWORD "|" SPACE "|."
-	gsub(/(^\xEF\xBB\xBF)|"[^"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^"\\[:cntrl:]]*)*"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
-	gsub("\n" SPACE, "\n", a1)
+# Pattern string summary with adjustments:
+# - replace strings with regex constant; https://github.com/step-/JSON.awk/issues/1
+# - reduce [:cntrl:] to [\000-\037]; https://github.com/step-/JSON.awk/issues/5
+# - reduce [:space:] to [ \t\n\r]; https://tools.ietf.org/html/rfc8259#page-5 ws
+# - replace {4} quantifier with three [0-9a-fA-F] for mawk; https://unix.stackexchange.com/a/506125
+# - BOM encodings UTF-8, UTF16-LE and UTF-BE; https://en.wikipedia.org/wiki/Byte_order_mark#Byte_order_marks_by_encoding
+# ----------
+# 	TOKENS  = BOM "|" STRING "|" NUMBER "|" KEYWORD "|" SPACE "|."
+# 	BOM     = "^\357\273\277|^\377\376|^\376\377"
+# 	STRING  = "\"" CHAR "*(" ESCAPE CHAR "*)*\""
+# 	ESCAPE  = "(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})"
+# 	CHAR    = "[^[:cntrl:]\\\"]"
+# 	NUMBER  = "-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?"
+# 	KEYWORD = "null|false|true"
+# 	SPACE   = "[[:space:]]+"
+
+	gsub(/^\357\273\277|^\377\376|^\376\377|"[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true|[ \t\n\r]+|./, "\n&", a1)
+	gsub("\n" "[ \t\n\r]+", "\n", a1)
 	# ^\n BOM?
-	sub(/^\n(\xEF\xBB\xBF\n)?/, "", a1)
+	sub(/^\n((\357\273\277|\377\376|\376\377)\n)?/, "", a1)
 	ITOKENS=0 # get_token() helper
 	return NTOKENS = split(a1, TOKENS, /\n/)
+}
+
+function is_value(a1) { #{{{1
+	# Return 0(malformed <value>) <0(<value> but !strict content) >0(pass)
+
+	# STRING | NUMBER | KEYWORD
+	if(!STRICT)
+		return a1 ~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
+
+	# STRICT is on
+	# unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
+	# Characters in a STRING are restricted as follows (RFC8259):
+	# All Unicode characters may be placed within the quotation marks, except for the characters that MUST be escaped:
+	# quotation mark, reverse solidus, and the control characters (U+0000 through U+001F).
+	# Any character may be escaped with \uXXXX, alternatively, with the following two-character escapes:
+	# %x75 4HEXDIG    ; uXXXX                U+XXXX
+	# %x22 /          ; "    quotation mark  U+0022
+	# %x5C /          ; \    reverse solidus U+005C
+	# %x62 /          ; b    backspace       U+0008
+	# %x66 /          ; f    form feed       U+000C
+	# %x6E /          ; n    line feed       U+000A   removed by tokenizer
+	# %x72 /          ; r    carriage return U+000D   removed by tokenizer
+	# %x2F /          ; /    solidus         U+002F   enforced only when STRICT >1
+	# %x74 /          ; t    tab             U+0009   removed by tokenizer
+
+	# NUMBER | KEYWORD
+	if (1 != index(a1, "\"")) {
+		return a1 ~ /^(-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
+	}
+	# invalid STRING
+	if (a1 !~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*")$/) {
+		return 0
+	}
+	a1 = substr(a1, 2, length(a1) -2)
+
+	# STRICT 1: allowed character escapes
+	gsub(/\\["\\\/bfnrt]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/, "", a1)
+	# STRICT 1: unescaped quotation-mark, reverse solidus and control characters
+	if (a1 ~ /["\\\000-\037]/) {
+		return -1
+	}
+	# STRICT 2: unescaped solidus
+	if (STRICT > 1 && index(a1, "/")) {
+		return -2
+	}
+	# PASS STRICT STRING
+	return 1
 }
 
 # vim:fdm=marker:

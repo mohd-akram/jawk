@@ -1,26 +1,24 @@
---- src/JSON.awk.orig	2020-08-15 16:59:21.000000000 +0400
-+++ src/JSON.awk	2020-08-15 17:06:30.000000000 +0400
-@@ -1,8 +1,8 @@
- #!/usr/bin/awk -f
- #
- # Software: JSON.awk - a practical JSON parser written in awk
--# Version: 1.4
--# Copyright (c) 2013-2020, step
-+# Version: 1.3.1
-+# Copyright (c) 2013-2019, step
- # License: MIT or Apache 2
- # Project home: https://github.com/step-/JSON.awk
- # Credits:      https://github.com/step-/JSON.awk#credits
-@@ -54,7 +54,7 @@
+--- src/JSON.awk.orig	2020-08-21 17:12:14.000000000 +0400
++++ src/JSON.awk	2020-08-21 17:22:51.000000000 +0400
+@@ -19,7 +19,7 @@
+ #   STREAM=: 0 or 1 {1}:
+ #      zero hooks callbacks into parser and stdout printing.
+ #   STRICT=: 0,1,2 {0}:
+-#      1 enforce RFC8259#7 character escapes except for solidus '/'
++#      1 enforce RFC8259#7 character escapes except for solidus /
+ #      2 enforce solidus escape too (for JSON embedded in HTML/XML)
+ 
+ BEGIN { #{{{1
+@@ -58,7 +58,7 @@
  	} # else usage: awk -f JSON.awk file1 [file2...]
  
  	# set file slurping mode
--	srand(); RS="\x01n/o/m/a/t/c/h" rand()
+-	srand(); RS="\1n/o/m/a/t/c/h" rand()
 +	srand(); RS="\1" rand()
  }
  
  { # main loop: process each file in turn {{{1
-@@ -62,9 +62,11 @@
+@@ -66,9 +66,11 @@
  
  	++FILEINDEX # 1-based
  	tokenize($0) # while(get_token()) {print TOKEN}
@@ -35,7 +33,7 @@
  	}
  }
  
-@@ -125,7 +127,7 @@
+@@ -130,7 +132,7 @@
  	}
  }
  
@@ -44,7 +42,7 @@
  	idx=0
  	ary=""
  	get_token()
-@@ -154,6 +156,17 @@
+@@ -159,6 +161,17 @@
  	} else {
  		VALUE = CB_VALUE = parse_array_empty(a1)
  	}
@@ -62,16 +60,16 @@
  	return 0
  }
  
-@@ -176,7 +189,7 @@
+@@ -181,7 +194,7 @@
  	}
  }
  
 -function parse_object(a1,   key,obj) { #{{{1
-+function parse_object(a1,   key,obj,keys,key_) { #{{{1
++function parse_object(a1,   key,obj,keys,key_,jpath,x) { #{{{1
  	obj=""
  	get_token()
  #	print "parse_object(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
-@@ -197,6 +210,9 @@
+@@ -202,6 +215,9 @@
  			if (parse_value(a1, key)) {
  				return 5
  			}
@@ -81,7 +79,7 @@
  			obj=obj key ":" VALUE
  			get_token()
  			if (TOKEN == "}") {
-@@ -215,6 +231,15 @@
+@@ -220,6 +236,15 @@
  	} else {
  		VALUE = CB_VALUE = parse_object_empty(a1)
  	}
@@ -97,7 +95,7 @@
  	return 0
  }
  
-@@ -272,13 +297,10 @@
+@@ -279,14 +304,10 @@
  
  function parse(   ret) { #{{{1
  	get_token()
@@ -105,14 +103,15 @@
  	if (ret = parse_value()) {
  		return ret
  	}
--	if (get_token()) {
+-	if (get_token() || "" != TOKEN) {
 -		report("EOF", TOKEN)
--		return 11
+-		return 10
+-		# TODO the next JSON text starts here.
 -	}
  	return 0
  }
  
-@@ -301,8 +323,6 @@
+@@ -309,8 +330,6 @@
  # 2) Move the call to apply() from the main loop to the END statement.
  # 3) In the main loop consider adding code that deletes partial JPATHS[]
  #    elements that would result from parsing invalid JSON files.
@@ -121,12 +120,3 @@
  
  	TOKEN=""; delete TOKENS; NTOKENS=ITOKENS=0
  	delete JPATHS; NJPATHS=0
-@@ -335,7 +355,7 @@
- #	KEYWORD="null|false|true"
- 	SPACE="[[:space:]]+"
- #	^BOM "|" STRING "|" NUMBER "|" KEYWORD "|" SPACE "|."
--	gsub(/(^\xEF\xBB\xBF)|\"[^\"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^\"\\[:cntrl:]]*)*\"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
-+	gsub(/(^\xEF\xBB\xBF)|"[^"\\[:cntrl:]]*((\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})[^"\\[:cntrl:]]*)*"|-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?|null|false|true|[[:space:]]+|./, "\n&", a1)
- 	gsub("\n" SPACE, "\n", a1)
- 	# ^\n BOM?
- 	sub(/^\n(\xEF\xBB\xBF\n)?/, "", a1)
