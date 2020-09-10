@@ -57,20 +57,15 @@ BEGIN { #{{{1
 		}
 	} # else usage: awk -f JSON.awk file1 [file2...]
 
-	# set file slurping mode
-	srand(); RS="\1" rand()
-}
-
-{ # main loop: process each file in turn {{{1
 	reset() # See important application note in reset()
 
 	++FILEINDEX # 1-based
-	tokenize($0) # while(get_token()) {print TOKEN}
 	while (0 == parse()) {
 		if (0 == STREAM)
 			cb_jpaths(JPATHS, NJPATHS)
 		else
 			print ""
+		reset()
 	}
 }
 
@@ -106,11 +101,14 @@ function append_jpath_value(jpath, value) { #{{{1
 
 function get_token() { #{{{1
 # usage: {tokenize($0); while(get_token()) {print TOKEN}}
-
+	if (ITOKENS == NTOKENS) {
+		if (getline == 1) tokenize($0)
+		else return 0
+	}
 	# return getline TOKEN # for external tokenizer
 
 	TOKEN = TOKENS[++ITOKENS] # for internal tokenize()
-	return ITOKENS < NTOKENS  # 1 if more tokens to come
+	return 1  # 1 if more tokens to come
 }
 
 function parse_array_empty(jpath) { #{{{1
@@ -303,8 +301,7 @@ function parse_value(a1, a2,   jpath,ret,x,reason) { #{{{1
 }
 
 function parse(   ret) { #{{{1
-	get_token()
-	if (!TOKEN) return 1;
+	if (!get_token()) return 1;
 	if (ret = parse_value()) {
 		return ret
 	}
