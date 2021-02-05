@@ -150,3 +150,7 @@ out=$(printf '%s' '{"x":"\t"}' | jawk '{printf("%s",_["x"])}' && echo .)
 test "no trailing newline in string (escaped)"
 out=$(printf '%s' '{"x":"\\n"}' | jawk '{printf("%s",_["x"])}' && echo .)
 [ "${out%.}" = "$(printf '\\n')" ]
+
+test "blank line in JSON"
+out=$(printf '{"a":1,\n\n"b":2}' | jawk '{print _["b"]}')
+[ "$out" = '2' ]

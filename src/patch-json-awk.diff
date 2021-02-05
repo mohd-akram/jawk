@@ -1,5 +1,5 @@
---- src/JSON.awk.orig	2020-09-10 23:30:29.000000000 +0400
-+++ src/JSON.awk	2020-09-10 23:47:16.000000000 +0400
+--- src/JSON.awk.orig	2021-02-05 19:50:39.000000000 +0400
++++ src/JSON.awk	2021-02-05 19:50:39.000000000 +0400
 @@ -19,7 +19,7 @@
  #   STREAM=: 0 or 1 {1}:
  #      zero hooks callbacks into parser and stdout printing.
@@ -34,14 +34,17 @@
  	}
  }
  
-@@ -104,11 +101,14 @@
+@@ -104,11 +101,17 @@
  
  function get_token() { #{{{1
  # usage: {tokenize($0); while(get_token()) {print TOKEN}}
 -
 +	if (ITOKENS == NTOKENS) {
-+		if (getline == 1) tokenize($0)
-+		else return 0
++		NTOKENS = 0
++		while (!NTOKENS) {
++			if (getline == 1) tokenize($0)
++			else return 0
++		}
 +	}
  	# return getline TOKEN # for external tokenizer
  
@@ -51,7 +54,7 @@
  }
  
  function parse_array_empty(jpath) { #{{{1
-@@ -130,7 +130,7 @@
+@@ -130,7 +133,7 @@
  	}
  }
  
@@ -60,7 +63,7 @@
  	idx=0
  	ary=""
  	get_token()
-@@ -159,6 +159,17 @@
+@@ -159,6 +162,17 @@
  	} else {
  		VALUE = CB_VALUE = parse_array_empty(a1)
  	}
@@ -78,7 +81,7 @@
  	return 0
  }
  
-@@ -181,7 +192,7 @@
+@@ -181,7 +195,7 @@
  	}
  }
  
@@ -87,7 +90,7 @@
  	obj=""
  	get_token()
  #	print "parse_object(" a1 ") TOKEN=" TOKEN >"/dev/stderr"
-@@ -202,6 +213,9 @@
+@@ -202,6 +216,9 @@
  			if (parse_value(a1, key)) {
  				return 5
  			}
@@ -97,7 +100,7 @@
  			obj=obj key ":" VALUE
  			get_token()
  			if (TOKEN == "}") {
-@@ -220,6 +234,15 @@
+@@ -220,6 +237,15 @@
  	} else {
  		VALUE = CB_VALUE = parse_object_empty(a1)
  	}
@@ -113,7 +116,7 @@
  	return 0
  }
  
-@@ -278,15 +301,10 @@
+@@ -278,15 +304,10 @@
  }
  
  function parse(   ret) { #{{{1
@@ -130,7 +133,7 @@
  	return 0
  }
  
-@@ -309,8 +327,6 @@
+@@ -309,8 +330,6 @@
  # 2) Move the call to apply() from the main loop to the END statement.
  # 3) In the main loop consider adding code that deletes partial JPATHS[]
  #    elements that would result from parsing invalid JSON files.
