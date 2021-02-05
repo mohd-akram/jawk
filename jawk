@@ -176,6 +176,8 @@ function append_jpath_value(jpath, value) { #{{{1
 }
 
 function get_token(line) { #{{{1
+
+
 	if (ITOKENS == NTOKENS) {
 		NTOKENS = 0
 		while (!NTOKENS) {
@@ -183,7 +185,6 @@ function get_token(line) { #{{{1
 			else return 0
 		}
 	}
-
 	TOKEN = TOKENS[++ITOKENS] # for internal tokenize()
 	return 1  # 1 if more tokens to come
 }
