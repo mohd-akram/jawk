@@ -99,12 +99,12 @@ function append_jpath_value(jpath, value) { #{{{1
 	}
 }
 
-function get_token() { #{{{1
+function get_token(line) { #{{{1
 # usage: {tokenize($0); while(get_token()) {print TOKEN}}
 	if (ITOKENS == NTOKENS) {
 		NTOKENS = 0
 		while (!NTOKENS) {
-			if (getline == 1) tokenize($0)
+			if (getline line == 1) tokenize(line)
 			else return 0
 		}
 	}
