@@ -154,3 +154,7 @@ out=$(printf '%s' '{"x":"\\n"}' | jawk '{printf("%s",_["x"])}' && echo .)
 test "blank line in JSON"
 out=$(printf '{"a":1,\n\n"b":2}' | jawk '{print _["b"]}')
 [ "$out" = '2' ]
+
+test "trailing space in JSON"
+out=$(printf '{"a":1, \n"b":2}' | jawk '{print _["b"]}')
+[ "$out" = '2' ]
