@@ -1,5 +1,5 @@
 --- src/JSON.awk.orig	2021-02-06 23:34:10.000000000 +0400
-+++ src/JSON.awk	2021-02-06 23:34:10.000000000 +0400
++++ src/JSON.awk	2021-11-26 17:35:38.000000000 +0400
 @@ -19,7 +19,7 @@
  #   STREAM=: 0 or 1 {1}:
  #      zero hooks callbacks into parser and stdout printing.
@@ -42,7 +42,8 @@
 +function get_token(line) { #{{{1
  # usage: {tokenize($0); while(get_token()) {print TOKEN}}
  
- 	# return getline TOKEN # for external tokenizer
+-	# return getline TOKEN # for external tokenizer
++	return getline TOKEN # for external tokenizer
  
 +	if (ITOKENS == NTOKENS) {
 +		NTOKENS = 0

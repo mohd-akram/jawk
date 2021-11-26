@@ -51,5 +51,13 @@ cbs=$(cat callbacks.awk)
 parser=$(cat JSON.awk)
 jawk=$(cat jawk.awk)
 
+ESCAPE='(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})'
+CHAR='[^[:cntrl:]"\\]'
+STRING="\"$CHAR*($ESCAPE$CHAR*)*\""
+NUMBER='-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?'
+KEYWORD='null|false|true'
+SPACE='[[:space:]]+'
+
+grep -oE "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
 awk -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" "$file" | \
 awk "$@" "$jawk""$prog"

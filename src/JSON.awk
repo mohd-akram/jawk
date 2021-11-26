@@ -102,7 +102,7 @@ function append_jpath_value(jpath, value) { #{{{1
 function get_token(line) { #{{{1
 # usage: {tokenize($0); while(get_token()) {print TOKEN}}
 
-	# return getline TOKEN # for external tokenizer
+	return getline TOKEN # for external tokenizer
 
 	if (ITOKENS == NTOKENS) {
 		NTOKENS = 0

@@ -177,6 +177,7 @@ function append_jpath_value(jpath, value) { #{{{1
 
 function get_token(line) { #{{{1
 
+	return getline TOKEN # for external tokenizer
 
 	if (ITOKENS == NTOKENS) {
 		NTOKENS = 0
@@ -827,5 +828,13 @@ function __jawk(i, kv, key, value, raw_value, type, start) {
 }
 '
 
+ESCAPE='(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})'
+CHAR='[^[:cntrl:]"\\]'
+STRING="\"$CHAR*($ESCAPE$CHAR*)*\""
+NUMBER='-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?'
+KEYWORD='null|false|true'
+SPACE='[[:space:]]+'
+
+grep -oE "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
 awk -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" "$file" | \
 awk "$@" "$jawk""$prog"
