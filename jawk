@@ -58,8 +58,6 @@ function cb_parse_object_empty(jpath) {
 
 function cb_parse_array_enter(jpath) {
 
-	if ("" != jpath)
-		;
 }
 
 function cb_parse_array_exit(jpath, status) {
@@ -68,8 +66,6 @@ function cb_parse_array_exit(jpath, status) {
 
 function cb_parse_object_enter(jpath) {
 
-	if ("" != jpath)
-		;
 }
 
 function cb_parse_object_exit(jpath, status) {
@@ -77,10 +73,9 @@ function cb_parse_object_exit(jpath, status) {
 }
 
 function cb_append_jpath_component (jpath, component) {
-	if (match(component, /^[0-9]+$/))
-		component++;
 	if (component == "") return jpath
-	gsub(/^"|"$/, "", component)
+	if (match(component, /^[0-9]+$/)) component++;
+	else gsub(/^"|"$/, "", component)
 	if (jpath == "") return "\"" component "\""
 	gsub(/^"|"$/, "", jpath)
 	return "\"" jpath SUBSEP component "\""
@@ -88,7 +83,7 @@ function cb_append_jpath_component (jpath, component) {
 
 function cb_append_jpath_value (jpath, value) {
 
-	return sprintf("%s\t%s", jpath, value)
+	return jpath "\t" value
 }
 
 function cb_jpaths (ary, size,   i) {

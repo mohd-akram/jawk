@@ -28,8 +28,6 @@ function cb_parse_object_empty(jpath) {
 function cb_parse_array_enter(jpath) {
 
 #	print "cb_parse_array_enter("jpath") token("TOKEN")" >"/dev/stderr"
-	if ("" != jpath)
-		;
 }
 
 # cb_parse_array_exit - end parsing an array.
@@ -47,8 +45,6 @@ function cb_parse_array_exit(jpath, status) {
 function cb_parse_object_enter(jpath) {
 
 #	print "cb_parse_object_enter("jpath") token("TOKEN")" >"/dev/stderr"
-	if ("" != jpath)
-		;
 }
 
 # cb_parse_object_exit - end parsing an object.
@@ -63,11 +59,10 @@ function cb_parse_object_exit(jpath, status) {
 # Called in JSON.awk main loop when STREAM=0 only.
 # This example formats jpaths exactly as JSON.awk does when STREAM=1.
 function cb_append_jpath_component (jpath, component) {
-	# if it is an array index, make it 1-indexed
-	if (match(component, /^[0-9]+$/))
-		component++;
 	if (component == "") return jpath
-	gsub(/^"|"$/, "", component)
+	# if it is an array index, make it 1-indexed
+	if (match(component, /^[0-9]+$/)) component++;
+	else gsub(/^"|"$/, "", component)
 	if (jpath == "") return "\"" component "\""
 	gsub(/^"|"$/, "", jpath)
 	return "\"" jpath SUBSEP component "\""
@@ -80,7 +75,7 @@ function cb_append_jpath_component (jpath, component) {
 function cb_append_jpath_value (jpath, value) {
 
 #	print "cb_append_jpath_value("jpath") ("jpath") value("value")" >"/dev/stderr"
-	return sprintf("%s\t%s", jpath, value)
+	return jpath "\t" value
 }
 
 # cb_jpaths - process cb_append_jpath_value outputs
