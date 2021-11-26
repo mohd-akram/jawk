@@ -356,26 +356,27 @@ function keys(a, o, n, ks, i) {
 	return n
 }
 
-function __jawk(i, kv, key, value, raw_value, type) {
+function __jawk(i, kv, key, value, raw_value, type, start) {
 	for (i = 1; i <= NF; i++) {
 		split($i, kv, "\t")
 		# remove surrounding quotes
 		key = substr(kv[1], 2, length(kv[1]) - 2)
 		value = kv[2]
 		raw_value = value
+		start = substr(value, 1, 1)
 		# if string
-		if (match(value, /^"/)) {
+		if (start == "\"") {
 			# remove surrounding quotes
 			value = __unescape(substr(value, 2, length(value) - 2))
 			type = "string"
 		}
 		# if object
-		else if (match(value, /^\{/)) {
+		else if (start == "{") {
 			value = key
 			type = "object"
 		}
 		# if array
-		else if (match(value, /^\[/)) {
+		else if (start == "[") {
 			value = key
 			type = "array"
 		}
