@@ -158,3 +158,8 @@ out=$(printf '{"a":1,\n\n"b":2}' | jawk '{print _["b"]}')
 test "trailing space in JSON"
 out=$(printf '{"a":1, \n"b":2}' | jawk '{print _["b"]}')
 [ "$out" = '2' ]
+
+test "file"
+echo '{"age":10}' >test/test.json
+out=$(jawk '{print _["age"]}' test/test.json; rm test/test.json)
+[ "$out" = "10" ]

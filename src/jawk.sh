@@ -61,5 +61,5 @@ SPACE='[[:space:]]+'
 : ${AWK=$(command -v gawk || echo awk)}
 
 grep -oE "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
-$AWK -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" "$file" |
+$AWK -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" - |
 $AWK "$@" "$jawk""$prog"
