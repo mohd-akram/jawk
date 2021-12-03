@@ -59,7 +59,8 @@ KEYWORD='null|false|true'
 SPACE='[[:space:]]+'
 
 : ${AWK=$(command -v gawk || echo awk)}
+: ${EGREP=$(command -v ugrep || echo 'grep -E')}
 
-grep -oE "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
+$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
 $AWK -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" - |
 $AWK "$@" "$jawk""$prog"
