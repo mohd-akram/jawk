@@ -61,13 +61,11 @@ jawk '{while (++i <= _["length"]) printf("{\"sha\":%s}\n",_[i,"sha",JSON])}'
 
 ## Details
 
-jawk uses [JSON.awk](https://github.com/step-/JSON.awk) to parse the JSON file.
-It then makes available each JSON object using the `_` variable. `jawk`
-programs are `awk` programs, and all `awk` features and functions are
-available. Nested fields can be accessed using standard awk indexing (eg.
-`_["foo","bar"]`). Some conversions are done: the value `true` is converted to
-1, `false` is converted to 0 and `null` is converted to `""`. Arrays are
-1-indexed.
+jawk makes available each JSON object using the `_` variable. `jawk` programs
+are `awk` programs, and all `awk` features and functions are available. Nested
+fields can be accessed using standard awk indexing (eg. `_["foo","bar"]`).
+Some conversions are done: the value `true` is converted to 1, `false` is
+converted to 0 and `null` is converted to `""`. Arrays are 1-indexed.
 
 ## Properties
 

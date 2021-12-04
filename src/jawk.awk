@@ -1,5 +1,5 @@
-BEGIN { RS=""; FS="\n"; JSON="\1"; TYPE="\2"; __jawk__init() }
-{ __jawk() }
+BEGIN { JSON="\1"; TYPE="\2"; __KEYS="\3"; __jawk__init() }
+{ __parse_value($0) }
 
 function __jawk__init(i) {
 	__CHAR[0] = "\0"
@@ -275,7 +275,7 @@ function __jawk__init(i) {
 function __utf8enc(c) {
 	# 0x007f
 	if (c <= 127) {
-		return __CHAR[c];
+		return __CHAR[c]
 	# 0x07ff
 	} else if (c <= 2047) {
 		# 110xxxxx 10xxxxxx
@@ -328,14 +328,14 @@ function __unescape(s, i, s2, c, u, h) {
 	return s2
 }
 
-function keys(a, o, n, ks, i) {
+function keys(a, o, n, i) {
 	# differentiate between the root object and an empty root key
 	# if the root object
 	if (o == "" && o == 0) {
 		# if object
-		if ("\3" in _) {
-			n = split(_["\3"], ks, "\037")
-			while (++i <= n) a[ks[i]] = ks[i]
+		if ((__KEYS,"length") in _) {
+			n = _[__KEYS,"length"]
+			while (++i <= n) a[_[__KEYS,i]] = _[__KEYS,i]
 		# if array
 		} else {
 			n = _["length"]
@@ -344,9 +344,9 @@ function keys(a, o, n, ks, i) {
 	}
 	else {
 		# if object
-		if ((o,"\3") in _) {
-			n = split(_[o,"\3"], ks, "\037")
-			while (++i <= n) a[ks[i]] = o SUBSEP ks[i]
+		if ((o,__KEYS,"length") in _) {
+			n = _[o,__KEYS,"length"]
+			while (++i <= n) a[_[o,__KEYS,i]] = o SUBSEP _[o,__KEYS,i]
 		# if array
 		} else {
 			n = _[o,"length"]
@@ -356,29 +356,40 @@ function keys(a, o, n, ks, i) {
 	return n
 }
 
-function __jawk(i, kv, key, value, raw_value, type, start) {
-	for (i = 1; i <= NF; i++) {
-		split($i, kv, "\t")
-		# remove surrounding quotes
-		key = substr(kv[1], 2, length(kv[1]) - 2)
-		value = kv[2]
+function __parse_array(path, i, sep, raw_value, value) {
+	i = 0
+	sep = ""
+	raw_value = "["
+	while (sep != "]") {
+		getline value
+		if (value == "]") {
+			raw_value = raw_value value
+			break
+		}
+		value = __parse_value(value, __getpath(path, ++i))
+		getline sep
+		raw_value = raw_value value sep
+	}
+	_[__getpath(path, "length")] = i
+	return raw_value
+}
+
+function __parse_value(value, path, raw_value, start, type) {
+	start = substr(value, 1, 1)
+	if (start == "{") {
+		_[path] = path
+		type = "object"
+		raw_value = __parse_object(path)
+	} else if (start == "[") {
+		_[path] = path
+		type = "array"
+		raw_value = __parse_array(path)
+	} else {
 		raw_value = value
-		start = substr(value, 1, 1)
-		# if string
 		if (start == "\"") {
 			# remove surrounding quotes
 			value = __unescape(substr(value, 2, length(value) - 2))
 			type = "string"
-		}
-		# if object
-		else if (start == "{") {
-			value = key
-			type = "object"
-		}
-		# if array
-		else if (start == "[") {
-			value = key
-			type = "array"
 		}
 		else if (value == "true") {
 			value = 1
@@ -394,16 +405,41 @@ function __jawk(i, kv, key, value, raw_value, type, start) {
 		} else {
 			type = "number"
 		}
-		# if not the root object
-		if (kv[1]) {
-			_[key] = value
-			_[key,JSON] = raw_value
-			_[key,TYPE] = type
-		} else {
-			if (type != "array" && type != "object")
-				_[0] = value;
-			_[JSON] = raw_value
-			_[TYPE] = type
-		}
+		if (path == "" && path == 0)
+			_[0] = value
+		else
+			_[path] = value
 	}
+	_[__getpath(path, JSON)] = raw_value
+	_[__getpath(path, TYPE)] = type
+	return raw_value
+}
+
+function __getpath(path, key) {
+	# differentiate between the root object and an empty root key
+	return path == "" && path == 0 ? key : path SUBSEP key
+}
+
+function __parse_object(path, sep, i, raw_value, key, colon, value, raw_key) {
+	sep = ""
+	i = 0
+	raw_value = "{"
+	while (sep != "}") {
+		getline key
+		if (key == "}") {
+			raw_value = raw_value key
+			break
+		}
+		getline colon
+		getline value
+		raw_key = key
+		key = substr(key, 2, length(key) - 2)
+		value = __parse_value(value, __getpath(path, key))
+		getline sep
+		raw_value = raw_value raw_key colon value sep
+		++i
+		_[__getpath(path, __KEYS SUBSEP i)] = key
+	}
+	_[__getpath(path, __KEYS SUBSEP "length")] = i
+	return raw_value
 }

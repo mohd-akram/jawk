@@ -44,397 +44,9 @@ done
 if [ ! "$p" ]; then usage; fi
 if [ ! "$f" ]; then file=-; fi
 
-cbs='
-
-function cb_parse_array_empty(jpath) {
-
-	return "[]"
-}
-
-function cb_parse_object_empty(jpath) {
-
-	return "{}"
-}
-
-function cb_parse_array_enter(jpath) {
-
-}
-
-function cb_parse_array_exit(jpath, status) {
-
-}
-
-function cb_parse_object_enter(jpath) {
-
-}
-
-function cb_parse_object_exit(jpath, status) {
-
-}
-
-function cb_append_jpath_component (jpath, component) {
-	if (component == "") return jpath
-	if (match(component, /^[0-9]+$/)) component++;
-	else gsub(/^"|"$/, "", component)
-	if (jpath == "") return "\"" component "\""
-	gsub(/^"|"$/, "", jpath)
-	return "\"" jpath SUBSEP component "\""
-}
-
-function cb_append_jpath_value (jpath, value) {
-
-	return jpath "\t" value
-}
-
-function cb_jpaths (ary, size,   i) {
-	for(i=1; i <= size; i++) {
-		print ary[i]
-	}
-
-	print ""
-}
-
-function cb_fails (ary, size,   k) {
-}
-
-function cb_fail1 (message) {
-	return 1
-}
-'
-parser='
-#!/usr/bin/awk -f
-#
-
-
-BEGIN { #{{{1
-	if (BRIEF  == "") BRIEF=1  # when 1 parse() omits non-leaf nodes from stdout
-	if (STREAM == "") STREAM=1 # when 0 parse() stores JPATHS[] for callback cb_jpaths
-	if (STRICT == "") STRICT=1 # when 1 parse() enforces valid character escapes (RFC8259 7)
-
-	NO_EMPTY_STR = 0; NO_EMPTY_ARY = NO_EMPTY_OBJ = 1
-
-	if (BRIEF > 0) { # parse() will look at NO_EMPTY_*
-		NO_EMPTY_STR = !(x=bit_on(BRIEF, 0))
-		NO_EMPTY_ARY = !(x=bit_on(BRIEF, 1))
-		NO_EMPTY_OBJ = !(x=bit_on(BRIEF, 2))
-		if (x=bit_on(BRIEF, 3)) NO_EMPTY_STR = 1 # wins over bit 0
-	}
-
-	delete FAILS
-	reset()
-
-	if (1 == ARGC) {
-		while (getline ARGV[++ARGC] < "/dev/stdin") {
-			if (ARGV[ARGC] == "")
-				break
-		}
-	} # else usage: awk -f JSON.awk file1 [file2...]
-
-	reset() # See important application note in reset()
-
-	++FILEINDEX # 1-based
-	while (0 == parse()) {
-		if (0 == STREAM)
-			cb_jpaths(JPATHS, NJPATHS)
-		else
-			print ""
-		reset()
-	}
-}
-
-END { # process invalid files {{{1
-	if (0 == STREAM) {
-		cb_fails(FAILS, NFAILS)
-	}
-	exit(NFAILS > 0)
-}
-
-function bit_on(n, b) { #{{{1
-	if (b == 0) return n % 2
-	return int(n / 2^b) % 2
-}
-
-function append_jpath_component(jpath, component) { #{{{1
-	if (0 == STREAM) {
-		return cb_append_jpath_component(jpath, component)
-	} else {
-		return (jpath != "" ? jpath "," : "") component
-	}
-}
-
-function append_jpath_value(jpath, value) { #{{{1
-	if (0 == STREAM) {
-		return cb_append_jpath_value(jpath, value)
-	} else {
-		return sprintf("[%s]\t%s", jpath, value)
-	}
-}
-
-function get_token(line) { #{{{1
-
-	return getline TOKEN # for external tokenizer
-
-	if (ITOKENS == NTOKENS) {
-		NTOKENS = 0
-		while (!NTOKENS) {
-			if (getline line == 1) tokenize(line)
-			else return 0
-		}
-	}
-	TOKEN = TOKENS[++ITOKENS] # for internal tokenize()
-	return 1  # 1 if more tokens to come
-}
-
-function parse_array_empty(jpath) { #{{{1
-	if (0 == STREAM) {
-		return cb_parse_array_empty(jpath)
-	}
-	return "[]"
-}
-
-function parse_array_enter(jpath) { #{{{1
-	if (0 == STREAM) {
-		cb_parse_array_enter(jpath)
-	}
-}
-
-function parse_array_exit(jpath, status) { #{{{1
-	if (0 == STREAM) {
-		cb_parse_array_exit(jpath, status)
-	}
-}
-
-function parse_array(a1,   idx,ary,jpath,ret,x) { #{{{1
-	idx=0
-	ary=""
-	get_token()
-	if (TOKEN != "]") {
-		while (1) {
-			if (ret = parse_value(a1, idx)) {
-				return ret
-			}
-			idx=idx+1
-			ary=ary VALUE
-			get_token()
-			if (TOKEN == "]") {
-				break
-			} else if (TOKEN == ",") {
-				ary = ary ","
-			} else {
-				report(", or ]", TOKEN ? TOKEN : "EOF")
-				return 2
-			}
-			get_token()
-		}
-		CB_VALUE = sprintf("[%s]", ary)
-		VALUE = 0 == BRIEF ? CB_VALUE : ""
-	} else {
-		VALUE = CB_VALUE = parse_array_empty(a1)
-	}
-
-	jpath = append_jpath_component(a1, "\"length\"")
-	x = append_jpath_value(jpath, idx)
-	if(0 == STREAM) {
-		JPATHS[++NJPATHS] = x
-	} else {
-		print x
-	}
-
-	return 0
-}
-
-function parse_object_empty(jpath) { #{{{1
-	if (0 == STREAM) {
-		return cb_parse_object_empty(jpath)
-	}
-	return "{}"
-}
-
-function parse_object_enter(jpath) { #{{{1
-	if (0 == STREAM) {
-		cb_parse_object_enter(jpath)
-	}
-}
-
-function parse_object_exit(jpath, status) { #{{{1
-	if (0 == STREAM) {
-		cb_parse_object_exit(jpath, status)
-	}
-}
-
-function parse_object(a1,   key,obj,keys,key_,jpath,x) { #{{{1
-	obj=""
-	get_token()
-	if (TOKEN != "}") {
-		while (1) {
-			if (TOKEN ~ /^".*"$/) {
-				key=TOKEN
-			} else {
-				report("string", TOKEN ? TOKEN : "EOF")
-				return 3
-			}
-			get_token()
-			if (TOKEN != ":") {
-				report(":", TOKEN ? TOKEN : "EOF")
-				return 4
-			}
-			get_token()
-			if (parse_value(a1, key)) {
-				return 5
-			}
-			key_ = key
-			gsub(/^"|"$/, "", key_)
-			keys=(keys ? keys "\037" : "") key_
-			obj=obj key ":" VALUE
-			get_token()
-			if (TOKEN == "}") {
-				break
-			} else if (TOKEN == ",") {
-				obj=obj ","
-			} else {
-				report(", or }", TOKEN ? TOKEN : "EOF")
-				return 6
-			}
-			get_token()
-		}
-		CB_VALUE = sprintf("{%s}", obj)
-		VALUE = 0 == BRIEF ? CB_VALUE : ""
-	} else {
-		VALUE = CB_VALUE = parse_object_empty(a1)
-	}
-	jpath = append_jpath_component(a1, KEYS)
-	x = append_jpath_value(jpath, keys)
-	if(0 == STREAM) {
-		JPATHS[++NJPATHS] = x
-	} else {
-		print x
-	}
-	return 0
-}
-
-function parse_value(a1, a2,   jpath,ret,x,reason) { #{{{1
-	jpath = append_jpath_component(a1, a2)
-
-	if (TOKEN == "{") {
-		parse_object_enter(jpath)
-		if (parse_object(jpath)) {
-			parse_object_exit(jpath, 7)
-			return 7
-		}
-		parse_object_exit(jpath, 0)
-	} else if (TOKEN == "[") {
-		parse_array_enter(jpath)
-		if (ret = parse_array(jpath)) {
-			parse_array_exit(jpath, ret)
-			return ret
-		}
-		parse_array_exit(jpath, 0)
-	} else if (TOKEN == "") { #test case 20150410 #4
-		report("value", "EOF")
-		return 8
-	} else if ((x = is_value(TOKEN)) >0) {
-		CB_VALUE = VALUE = TOKEN
-	} else {
-		if (-1 == x || -2 == x) {
-			reason = "missing or invalid character escape"
-		}
-		report("value", TOKEN, reason)
-		return 9
-	}
-
-	if (0 < BRIEF && ("" == jpath || "" == VALUE)) {
-		return 0
-	}
-
-	if (0 < BRIEF && (NO_EMPTY_STR && VALUE=="\"\"" || NO_EMPTY_ARY && VALUE=="[]" || NO_EMPTY_OBJ && VALUE=="{}")) {
-		return 0
-	}
-
-	x = append_jpath_value(jpath, VALUE)
-	if(0 == STREAM) {
-		JPATHS[++NJPATHS] = x
-	} else {
-		print x
-	}
-	return 0
-}
-
-function parse(   ret) { #{{{1
-	if (!get_token()) return 1;
-	if (ret = parse_value()) {
-		return ret
-	}
-	return 0
-}
-
-function report(expected, got, extra,   i,from,to,context) { #{{{1
-	from = ITOKENS - 10; if (from < 1) from = 1
-	to = ITOKENS + 10; if (to > NTOKENS) to = NTOKENS
-	for (i = from; i < ITOKENS; i++)
-		context = context sprintf("%s ", TOKENS[i])
-	context = context "<<" got ">> "
-	for (i = ITOKENS + 1; i <= to; i++)
-		context = context sprintf("%s ", TOKENS[i])
-	scream("expected <" expected "> but got <" got "> (length " length(got) (extra ? ", "extra :"") ") at input token " ITOKENS "\n" context)
-}
-
-function reset() { #{{{1
-
-	TOKEN=""; delete TOKENS; NTOKENS=ITOKENS=0
-	delete JPATHS; NJPATHS=0
-	CB_VALUE = VALUE = ""
-}
-
-function scream(msg) { #{{{1
-	NFAILS += (FILENAME in FAILS ? 0 : 1)
-	FAILS[FILENAME] = FAILS[FILENAME] (FAILS[FILENAME]!="" ? "\n" : "") msg
-	if(0 == STREAM) {
-		if(cb_fail1(msg)) {
-			print FILENAME ": " msg >"/dev/stderr"
-		}
-	} else {
-		print FILENAME ": " msg >"/dev/stderr"
-	}
-}
-
-function tokenize(a1) { #{{{1
-
-
-	gsub(/^\357\273\277|"[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true|[ \t\n\r]+|./, "\n&", a1)
-	gsub("\n" "[ \t\n\r]+", "\n", a1)
-	gsub(/^\n(\357\273\277\n)?|\n$/, "", a1)
-	ITOKENS=0 # get_token() helper
-	return NTOKENS = split(a1, TOKENS, /\n/)
-}
-
-function is_value(a1) { #{{{1
-
-	if(!STRICT)
-		return a1 ~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*"|-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
-
-
-	if (1 != index(a1, "\"")) {
-		return a1 ~ /^(-?(0|[1-9][0-9]*)([.][0-9]+)?([eE][+-]?[0-9]+)?|null|false|true)$/
-	}
-	if (a1 !~ /^("[^"\\\000-\037]*((\\[^u\000-\037]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[^"\\\000-\037]*)*")$/) {
-		return 0
-	}
-	a1 = substr(a1, 2, length(a1) -2)
-
-	gsub(/\\["\\\/bfnrt]|\\u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/, "", a1)
-	if (a1 ~ /["\\\000-\037]/) {
-		return -1
-	}
-	if (STRICT > 1 && index(a1, "/")) {
-		return -2
-	}
-	return 1
-}
-
-'
 jawk='
-BEGIN { RS=""; FS="\n"; JSON="\1"; TYPE="\2"; __jawk__init() }
-{ __jawk() }
+BEGIN { JSON="\1"; TYPE="\2"; __KEYS="\3"; __jawk__init() }
+{ __parse_value($0) }
 
 function __jawk__init(i) {
 	__CHAR[0] = "\0"
@@ -709,7 +321,7 @@ function __jawk__init(i) {
 
 function __utf8enc(c) {
 	if (c <= 127) {
-		return __CHAR[c];
+		return __CHAR[c]
 	} else if (c <= 2047) {
 		return __CHAR[192 + int(c/64)] __CHAR[128 + (c%64)]
 	} else if (c <= 65535) {
@@ -754,20 +366,20 @@ function __unescape(s, i, s2, c, u, h) {
 	return s2
 }
 
-function keys(a, o, n, ks, i) {
+function keys(a, o, n, i) {
 	if (o == "" && o == 0) {
-		if ("\3" in _) {
-			n = split(_["\3"], ks, "\037")
-			while (++i <= n) a[ks[i]] = ks[i]
+		if ((__KEYS,"length") in _) {
+			n = _[__KEYS,"length"]
+			while (++i <= n) a[_[__KEYS,i]] = _[__KEYS,i]
 		} else {
 			n = _["length"]
 			while (++i <= _["length"]) a[i] = i
 		}
 	}
 	else {
-		if ((o,"\3") in _) {
-			n = split(_[o,"\3"], ks, "\037")
-			while (++i <= n) a[ks[i]] = o SUBSEP ks[i]
+		if ((o,__KEYS,"length") in _) {
+			n = _[o,__KEYS,"length"]
+			while (++i <= n) a[_[o,__KEYS,i]] = o SUBSEP _[o,__KEYS,i]
 		} else {
 			n = _[o,"length"]
 			while (++i <= n) a[i] = o SUBSEP i
@@ -776,24 +388,39 @@ function keys(a, o, n, ks, i) {
 	return n
 }
 
-function __jawk(i, kv, key, value, raw_value, type, start) {
-	for (i = 1; i <= NF; i++) {
-		split($i, kv, "\t")
-		key = substr(kv[1], 2, length(kv[1]) - 2)
-		value = kv[2]
+function __parse_array(path, i, sep, raw_value, value) {
+	i = 0
+	sep = ""
+	raw_value = "["
+	while (sep != "]") {
+		getline value
+		if (value == "]") {
+			raw_value = raw_value value
+			break
+		}
+		value = __parse_value(value, __getpath(path, ++i))
+		getline sep
+		raw_value = raw_value value sep
+	}
+	_[__getpath(path, "length")] = i
+	return raw_value
+}
+
+function __parse_value(value, path, raw_value, start, type) {
+	start = substr(value, 1, 1)
+	if (start == "{") {
+		_[path] = path
+		type = "object"
+		raw_value = __parse_object(path)
+	} else if (start == "[") {
+		_[path] = path
+		type = "array"
+		raw_value = __parse_array(path)
+	} else {
 		raw_value = value
-		start = substr(value, 1, 1)
 		if (start == "\"") {
 			value = __unescape(substr(value, 2, length(value) - 2))
 			type = "string"
-		}
-		else if (start == "{") {
-			value = key
-			type = "object"
-		}
-		else if (start == "[") {
-			value = key
-			type = "array"
 		}
 		else if (value == "true") {
 			value = 1
@@ -809,17 +436,42 @@ function __jawk(i, kv, key, value, raw_value, type, start) {
 		} else {
 			type = "number"
 		}
-		if (kv[1]) {
-			_[key] = value
-			_[key,JSON] = raw_value
-			_[key,TYPE] = type
-		} else {
-			if (type != "array" && type != "object")
-				_[0] = value;
-			_[JSON] = raw_value
-			_[TYPE] = type
-		}
+		if (path == "" && path == 0)
+			_[0] = value
+		else
+			_[path] = value
 	}
+	_[__getpath(path, JSON)] = raw_value
+	_[__getpath(path, TYPE)] = type
+	return raw_value
+}
+
+function __getpath(path, key) {
+	return path == "" && path == 0 ? key : path SUBSEP key
+}
+
+function __parse_object(path, sep, i, raw_value, key, colon, value, raw_key) {
+	sep = ""
+	i = 0
+	raw_value = "{"
+	while (sep != "}") {
+		getline key
+		if (key == "}") {
+			raw_value = raw_value key
+			break
+		}
+		getline colon
+		getline value
+		raw_key = key
+		key = substr(key, 2, length(key) - 2)
+		value = __parse_value(value, __getpath(path, key))
+		getline sep
+		raw_value = raw_value raw_key colon value sep
+		++i
+		_[__getpath(path, __KEYS SUBSEP i)] = key
+	}
+	_[__getpath(path, __KEYS SUBSEP "length")] = i
+	return raw_value
 }
 '
 
@@ -833,6 +485,4 @@ SPACE='[[:space:]]+'
 : ${AWK=$(command -v gawk || echo awk)}
 : ${EGREP=$(command -v ugrep || echo 'grep -E')}
 
-$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
-$AWK -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" - |
-$AWK "$@" "$jawk""$prog"
+$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" | $AWK "$@" "$jawk$prog"

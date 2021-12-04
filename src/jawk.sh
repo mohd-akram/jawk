@@ -47,8 +47,6 @@ done
 if [ ! "$p" ]; then usage; fi
 if [ ! "$f" ]; then file=-; fi
 
-cbs=$(cat callbacks.awk)
-parser=$(cat JSON.awk)
 jawk=$(cat jawk.awk)
 
 ESCAPE='(\\[^u[:cntrl:]]|\\u[0-9a-fA-F]{4})'
@@ -61,6 +59,4 @@ SPACE='[[:space:]]+'
 : ${AWK=$(command -v gawk || echo awk)}
 : ${EGREP=$(command -v ugrep || echo 'grep -E')}
 
-$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
-$AWK -v BRIEF=0 -v STREAM=0 -v KEYS="\3" "$cbs""$parser" - |
-$AWK "$@" "$jawk""$prog"
+$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" | $AWK "$@" "$jawk$prog"

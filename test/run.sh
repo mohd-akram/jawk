@@ -106,6 +106,10 @@ test "_[p,TYPE] == \"null\""
 out=$(echo '{"x":null}' | jawk '{print _["x",TYPE]}')
 [ "$out" = "null" ]
 
+test "_[\"\"]"
+out=$(echo '{"":"Jason"}' | jawk '{print _[""]}')
+[ "$out" = 'Jason' ]
+
 test "_[0]"
 out=$(printf '20\n{"0":5}' | jawk '{print _[0]}')
 [ "$out" = "$(printf '%s\n' 20 5)" ]
