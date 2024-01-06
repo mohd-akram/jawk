@@ -169,5 +169,9 @@ out=$(printf '{"a":1, \n"b":2}' | jawk '{print _["b"]}')
 
 test "file"
 echo '{"age":10}' >test/test.json
-out=$(jawk '{print _["age"]}' test/test.json; rm test/test.json)
-[ "$out" = "10" ]
+out=$(jawk '{print FILENAME;print _["age"]}' test/test.json; rm test/test.json)
+[ "$out" = "$(printf 'test/test.json\n10')" ]
+
+test "NR"
+out=$(printf '{\n"age":10\n}\n{\n"age":12\n}' | jawk '{print NR}')
+[ "$out" = "$(printf '1\n2')" ]

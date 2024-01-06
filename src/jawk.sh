@@ -59,4 +59,5 @@ SPACE='[[:space:]]+'
 : ${AWK=$(command -v gawk || echo awk)}
 : ${EGREP=$(command -v ugrep || echo 'grep -E')}
 
-$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" | $AWK "$@" "$jawk$prog"
+$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
+$AWK -v __FILENAME="$file" "$@" "$jawk$prog"

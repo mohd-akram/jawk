@@ -1,5 +1,5 @@
 BEGIN { JSON="\1"; TYPE="\2"; __KEYS="\3"; FS="\n"; __jawk__init() }
-{ __parse_value($0); $0 = _[JSON] }
+{ __parse_value($0); $0 = _[JSON]; NR = ++__NR; FILENAME = __FILENAME }
 
 function __jawk__init(i) {
 	__CHAR[0]   =   "\0"; __CHAR[1]   =   "\1"; __CHAR[2]   =   "\2"
