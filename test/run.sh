@@ -4,6 +4,10 @@
 
 alias jawk=./jawk
 
+test "print"
+out=$(printf '{\n"age":10\n}' | jawk '{print}')
+[ "$out" = '{"age":10}' ]
+
 test "extract field"
 out=$(echo '{"age":10}' | jawk '{print _["age"]}')
 [ "$out" = "10" ]
