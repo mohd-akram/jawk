@@ -2,7 +2,7 @@
 
 . test/test.sh
 
-alias jawk=./jawk
+PATH=.:$PATH
 
 test "print"
 out=$(printf '{\n"age":10\n}' | jawk '{print}')
