@@ -167,11 +167,22 @@ test "trailing space in JSON"
 out=$(printf '{"a":1, \n"b":2}' | jawk '{print _["b"]}')
 [ "$out" = '2' ]
 
-test "file"
-echo '{"age":10}' >test/test.json
-out=$(jawk '{print FILENAME;print _["age"]}' test/test.json; rm test/test.json)
-[ "$out" = "$(printf 'test/test.json\n10')" ]
-
 test "NR"
 out=$(printf '{\n"age":10\n}\n{\n"age":12\n}' | jawk '{print NR}')
 [ "$out" = "$(printf '1\n2')" ]
+
+test "files"
+printf '{"age":10}\n{"age":20}' >test/test.json
+printf '{"age":30}\n{"age":40}' >test/test2.json
+out=$(jawk \
+	'BEGIN{print ARGC,ARGV[0],ARGV[1],ARGV[2]}
+	{print ARGC,FILENAME,NR,FNR,_["age"]}' \
+		test/test.json test/test2.json
+	rm test/test*.json
+)
+[ "$out" = "$(printf '%s\n' \
+'3 jawk test/test.json test/test2.json' \
+'3 test/test.json 1 1 10' \
+'3 test/test.json 2 2 20' \
+'3 test/test2.json 3 1 30' \
+'3 test/test2.json 4 2 40')" ]

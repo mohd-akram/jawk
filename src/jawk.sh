@@ -5,7 +5,7 @@ set -eu
 name=`basename $0`
 
 usage() {
-	echo "usage: $name [-v var=value] [-f progfile | 'prog'] [file]" >&2
+	echo >&2 "usage: $name [-v var=value] [-f progfile | 'prog'] [file ...]"
 	exit 1
 }
 
@@ -22,7 +22,7 @@ done
 i=0
 skip=
 f=
-file=
+files=
 for arg do
 	i=$((i+1))
 	shift
@@ -37,15 +37,17 @@ for arg do
 	# Get prog and file
 	else
 		if [ ! "$p" ]; then prog=$arg; p=1
-		elif [ ! "$f" ]; then file=$arg; f=1
-		else usage; fi
+		else
+			if [ ! "$f" ]; then files="$arg"
+			else files=$(printf '%s\t%s' "$files" "$arg"); fi
+			f=$((f+1));
+		fi
 		continue
 	fi
 	set -- "$@" "$arg"
 done
 
 if [ ! "$p" ]; then usage; fi
-if [ ! "$f" ]; then file=-; fi
 
 jawk=$(cat jawk.awk)
 
@@ -55,9 +57,23 @@ STRING="\"$CHAR*($ESCAPE$CHAR*)*\""
 NUMBER='-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?'
 KEYWORD='null|false|true'
 SPACE='[[:space:]]+'
+JSON="$STRING|$NUMBER|$KEYWORD|[][{}:,]"
+
+prog="$jawk
+$prog
+BEGIN { ARGC=1; RS=FS=\"\n\" } { ARGC=1; RS=FS=\"\n\" }
+"
 
 : ${AWK=$(command -v gawk || echo awk)}
 : ${EGREP=$(command -v ugrep || echo 'grep -E')}
 
-$EGREP -o "$STRING|$NUMBER|$KEYWORD|[][{}:,]" "$file" |
-$AWK -v __FILENAME="$file" "$@" "$jawk$prog"
+if [ ! "$f" ]; then
+	$EGREP -o "$JSON" - 2>/dev/null | $AWK -v __ARGV0="${0##*/}" "$@" "$prog"
+else
+	IFS=$(printf '\t')
+	for file in $files; do
+		unset IFS
+		printf -- '---%s\n' "$file"
+		$EGREP -o "$JSON" "$file" 2>/dev/null
+	done | $AWK -v __ARGV0="${0##*/}" -v __ARGV="$files" "$@" "$prog"
+fi
