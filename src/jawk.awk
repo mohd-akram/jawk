@@ -185,18 +185,37 @@ function keys(a, o, n, i) {
 	return n
 }
 
+function __error(t) {
+	printf "%s: unexpected token %s\n", __ARGV0, t >"/dev/stderr"
+	exit 1
+}
+
+function __get_token(t) {
+	if (getline t == -1) {
+		printf "%s: read error\n", __ARGV0 >"/dev/stderr"
+		exit 1
+	}
+	if (t == "") {
+		printf "%s: unexpected EOF\n", __ARGV0 >"/dev/stderr"
+		exit 1
+	}
+	return t
+}
+
 function __parse_array(path, i, sep, raw_value, value) {
 	i = 0
 	sep = ""
 	raw_value = "["
 	while (sep != "]") {
-		getline value
+		value = __get_token()
 		if (value == "]") {
+			if (sep) __error(value)
 			raw_value = raw_value value
 			break
 		}
 		value = __parse_value(value, __getpath(path, ++i))
-		getline sep
+		sep = __get_token()
+		if (sep != "," && sep != "]") __error(sep)
 		raw_value = raw_value value sep
 	}
 	_[__getpath(path, "length")] = i
@@ -215,7 +234,7 @@ function __parse_value(value, path, raw_value, start, type) {
 		raw_value = __parse_array(path)
 	} else {
 		raw_value = value
-		if (start == "\"") {
+		if (start == "\"" && length(value) > 1) {
 			# remove surrounding quotes
 			value = __unescape(substr(value, 2, length(value) - 2))
 			type = "string"
@@ -231,8 +250,12 @@ function __parse_value(value, path, raw_value, start, type) {
 		else if (value == "null") {
 			value = ""
 			type = "null"
-		} else {
+		}
+		else if (value ~ /^-?[0-9]/) {
 			type = "number"
+		}
+		else {
+			__error(value)
 		}
 		if (path == "" && path == 0)
 			_[0] = value
@@ -254,17 +277,20 @@ function __parse_object(path, sep, i, raw_value, key, colon, value, raw_key) {
 	i = 0
 	raw_value = "{"
 	while (sep != "}") {
-		getline key
+		key = __get_token()
 		if (key == "}") {
+			if (sep) __error(key)
 			raw_value = raw_value key
 			break
 		}
-		getline colon
-		getline value
+		if (length(key) < 2) __error(key)
 		raw_key = key
 		key = substr(key, 2, length(key) - 2)
-		value = __parse_value(value, __getpath(path, key))
-		getline sep
+		colon = __get_token()
+		if (colon != ":") __error(colon)
+		value = __parse_value(__get_token(), __getpath(path, key))
+		sep = __get_token()
+		if (sep != "," && sep != "}") __error(sep)
 		raw_value = raw_value raw_key colon value sep
 		++i
 		_[__getpath(path, __KEYS SUBSEP i)] = key

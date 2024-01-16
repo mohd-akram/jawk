@@ -186,3 +186,51 @@ out=$(jawk \
 '3 test/test.json 2 2 20' \
 '3 test/test2.json 3 1 30' \
 '3 test/test2.json 4 2 40')" ]
+
+test "trailing comma in array"
+out=$(echo '[1,]' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = 'jawk: unexpected token ]' ]
+
+test "trailing comma in object"
+out=$(echo '{"x":1,}' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = 'jawk: unexpected token }' ]
+
+test "unexpected token"
+out=$(echo '"' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = 'jawk: unexpected token "' ]
+
+test "unexpected token in array separator"
+out=$(echo [1s | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = "jawk: unexpected token s" ]
+
+test "unexpected token in object key"
+out=$(echo '{"' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = 'jawk: unexpected token "' ]
+
+test "unexpected token in object colon"
+out=$(echo '{"x"c' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = "jawk: unexpected token c" ]
+
+test "unexpected token in object separator"
+out=$(echo '{"x":1s' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = "jawk: unexpected token s" ]
+
+test "unexpected EOF"
+out=$(echo [ | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = "jawk: unexpected EOF" ]

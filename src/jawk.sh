@@ -56,8 +56,7 @@ CHAR='[^[:cntrl:]"\\]'
 STRING="\"$CHAR*($ESCAPE$CHAR*)*\""
 NUMBER='-?(0|[1-9][0-9]*)([.][0-9]*)?([eE][+-]?[0-9]*)?'
 KEYWORD='null|false|true'
-SPACE='[[:space:]]+'
-JSON="$STRING|$NUMBER|$KEYWORD|[][{}:,]"
+JSON="$STRING|$NUMBER|$KEYWORD|[][{}:,]|[^[:space:]]"
 
 prog="$jawk
 $prog
