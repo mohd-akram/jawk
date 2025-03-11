@@ -283,7 +283,7 @@ function __parse_object(path, sep, i, raw_value, key, colon, value, raw_key) {
 			raw_value = raw_value key
 			break
 		}
-		if (length(key) < 2) __error(key)
+		if (length(key) < 2 || substr(key, 1, 1) != "\"") __error(key)
 		raw_key = key
 		key = substr(key, 2, length(key) - 2)
 		colon = __get_token()

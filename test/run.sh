@@ -217,6 +217,12 @@ err=$(cat test/err; rm test/err)
 [ "$out" = 1 ]
 [ "$err" = 'jawk: unexpected token "' ]
 
+test "unexpected token in object key (number)"
+out=$(echo '{12:34}' | jawk '{print}' 2>test/err; echo $?)
+err=$(cat test/err; rm test/err)
+[ "$out" = 1 ]
+[ "$err" = 'jawk: unexpected token 12' ]
+
 test "unexpected token in object colon"
 out=$(echo '{"x"c' | jawk '{print}' 2>test/err; echo $?)
 err=$(cat test/err; rm test/err)
