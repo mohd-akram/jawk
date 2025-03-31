@@ -37,7 +37,7 @@ for arg do
 		else
 			if [ ! "$f" ]; then files="$arg"
 			else files=$(printf '%s\t%s' "$files" "$arg"); fi
-			f=$((f+1));
+			f=$((f+1))
 		fi
 		continue
 	fi
