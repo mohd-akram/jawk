@@ -130,31 +130,41 @@ function __hextodec(h) {
 	return 256 * __HEX[substr(h, 1, 2)] + __HEX[substr(h, 3)]
 }
 
-function __unescape(s, i, s2, c, u, h) {
-	i = match(s, /\\([bfnrt"\\\/]|u[0-9a-fA-F]{4})/)
-	if (!i) return s
-	s2 = ""
-	while (i) {
-		c = substr(s, RSTART, RLENGTH)
+function __error(msg) {
+	printf "%s: %s\n", __ARGV0, msg >"/dev/stderr"
+	exit 1
+}
+
+function __unescape(s, out, i, c, u, h, l) {
+	out = ""
+	while ((i = match(s, /\\/))) {
+		c = substr(s, i, 2)
 		if (c in __UNESCAPE) u = __UNESCAPE[c]
-		else {
+		else if (match(substr(s, i), /^\\u[0-9a-fA-F]{4}/)) {
+			c = substr(s, i, RLENGTH)
 			h = __hextodec(substr(c, 3))
-			# high surrogate pair
+			# high surrogate
 			# 0xd800 - 0xdbff
 			if (h >= 55296 && h <= 56319) {
-				c = substr(s, RSTART + RLENGTH, 6)
-				RLENGTH += 6
-				h = 65536 + ((h - 55296) * 1024) + \
-					(__hextodec(substr(c, 3)) - 56320)
+				if (!match( \
+					substr(s, i+length(c)),
+					/^\\u[0-9a-fA-F]{4}/ \
+				))
+					__error("unpaired high surrogate " c)
+				c = c substr(s, i+length(c), RLENGTH)
+				l = __hextodec(substr(c, 9))
+				# low surrogate
+				# 0xdc00 - 0xdfff
+				if (l < 56320 || l > 57343)
+					__error("invalid surrogate pair " c)
+				h = 65536 + ((h - 55296) * 1024) + (l - 56320)
 			}
 			u = __utf8enc(h)
-		}
-		s2 = s2 substr(s, 1, RSTART - 1) u
-		s = substr(s, RSTART + RLENGTH)
-		i = match(s, /\\([bfnrt"\\\/]|u[0-9a-fA-F]{4})/)
+		} else __error("invalid escape sequence " c)
+		out = out substr(s, 1, i-1) u
+		s = substr(s, i+length(c))
 	}
-	s2 = s2 s
-	return s2
+	return out s
 }
 
 function keys(a, o, n, i) {
@@ -185,20 +195,13 @@ function keys(a, o, n, i) {
 	return n
 }
 
-function __error(t) {
-	printf "%s: unexpected token %s\n", __ARGV0, t >"/dev/stderr"
-	exit 1
+function __terror(t) {
+	__error("unexpected token " t)
 }
 
 function __get_token(t) {
-	if (getline t == -1) {
-		printf "%s: read error\n", __ARGV0 >"/dev/stderr"
-		exit 1
-	}
-	if (t == "") {
-		printf "%s: unexpected EOF\n", __ARGV0 >"/dev/stderr"
-		exit 1
-	}
+	if (getline t == -1) __error("read error")
+	if (t == "") __error("unexpected EOF")
 	return t
 }
 
@@ -209,13 +212,13 @@ function __parse_array(path, i, sep, raw_value, value) {
 	while (sep != "]") {
 		value = __get_token()
 		if (value == "]") {
-			if (sep) __error(value)
+			if (sep) __terror(value)
 			raw_value = raw_value value
 			break
 		}
 		value = __parse_value(value, __getpath(path, ++i))
 		sep = __get_token()
-		if (sep != "," && sep != "]") __error(sep)
+		if (sep != "," && sep != "]") __terror(sep)
 		raw_value = raw_value value sep
 	}
 	_[__getpath(path, "length")] = i
@@ -255,7 +258,7 @@ function __parse_value(value, path, raw_value, start, type) {
 			type = "number"
 		}
 		else {
-			__error(value)
+			__terror(value)
 		}
 		if (path == "" && path == 0)
 			_[0] = value
@@ -279,18 +282,18 @@ function __parse_object(path, sep, i, raw_value, key, colon, value, raw_key) {
 	while (sep != "}") {
 		key = __get_token()
 		if (key == "}") {
-			if (sep) __error(key)
+			if (sep) __terror(key)
 			raw_value = raw_value key
 			break
 		}
-		if (length(key) < 2 || substr(key, 1, 1) != "\"") __error(key)
+		if (length(key) < 2 || substr(key, 1, 1) != "\"") __terror(key)
 		raw_key = key
 		key = substr(key, 2, length(key) - 2)
 		colon = __get_token()
-		if (colon != ":") __error(colon)
+		if (colon != ":") __terror(colon)
 		value = __parse_value(__get_token(), __getpath(path, key))
 		sep = __get_token()
-		if (sep != "," && sep != "}") __error(sep)
+		if (sep != "," && sep != "}") __terror(sep)
 		raw_value = raw_value raw_key colon value sep
 		++i
 		_[__getpath(path, __KEYS SUBSEP i)] = key
